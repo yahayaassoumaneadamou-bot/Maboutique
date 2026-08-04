@@ -16,7 +16,7 @@
 <div class="container">
   <div class="section">
     <h2>Nos produits</h2>
-    <div id="grille-produits" class="grid"></div>
+    <div id="grille-produits" class="grid"><div class="vide">Chargement...</div></div>
   </div>
 
   <div class="panier">
@@ -32,12 +32,15 @@
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="data.js"></script>
 <script>
   let panier = []; // { id, nom, prix, quantite }
+  let produitsActuels = [];
 
-  function afficherProduits() {
-    const produits = getProduits();
+  function afficherProduits(produits) {
+    produitsActuels = produits;
     const grille = document.getElementById("grille-produits");
     grille.innerHTML = "";
 
@@ -61,8 +64,7 @@
   }
 
   function ajouterAuPanier(id) {
-    const produits = getProduits();
-    const produit = produits.find(p => p.id === id);
+    const produit = produitsActuels.find(p => p.id === id);
     if (!produit) return;
 
     const ligne = panier.find(l => l.id === id);
@@ -102,7 +104,7 @@
     document.getElementById("total-panier").textContent = total + " €";
   }
 
-  function passerCommande() {
+  async function passerCommande() {
     const nomClient = document.getElementById("nom-client").value.trim();
 
     if (panier.length === 0) {
@@ -114,41 +116,39 @@
       return;
     }
 
-    // Vérifier et déduire le stock
-    const produits = getProduits();
+    // Vérifier le stock
     for (const ligne of panier) {
-      const produit = produits.find(p => p.id === ligne.id);
+      const produit = produitsActuels.find(p => p.id === ligne.id);
       if (!produit || produit.stock < ligne.quantite) {
         alert(`Stock insuffisant pour ${ligne.nom}.`);
         return;
       }
     }
-    produits.forEach(p => {
-      const ligne = panier.find(l => l.id === p.id);
-      if (ligne) p.stock -= ligne.quantite;
-    });
-    saveProduits(produits);
+
+    // Déduire le stock de chaque produit
+    for (const ligne of panier) {
+      const produit = produitsActuels.find(p => p.id === ligne.id);
+      await modifierStock(produit.id, produit.stock - ligne.quantite);
+    }
 
     // Enregistrer la commande
-    const commandes = getCommandes();
-    commandes.push({
-      id: genererId(),
+    await ajouterCommande({
       client: nomClient,
       articles: panier,
       total: panier.reduce((s, l) => s + l.prix * l.quantite, 0),
       statut: "en attente",
       date: new Date().toLocaleString("fr-FR"),
     });
-    saveCommandes(commandes);
 
     alert("Commande envoyée, merci !");
     panier = [];
     document.getElementById("nom-client").value = "";
     afficherPanier();
-    afficherProduits();
   }
 
-  afficherProduits();
+  initialiserProduitsDemo().then(() => {
+    ecouterProduits(afficherProduits);
+  });
   afficherPanier();
 </script>
 
