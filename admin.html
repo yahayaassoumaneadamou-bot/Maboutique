@@ -21,7 +21,7 @@
       <input id="nouveau-nom" placeholder="Nom du produit">
       <input id="nouveau-prix" type="number" placeholder="Prix (€)">
       <input id="nouveau-stock" type="number" placeholder="Stock">
-      <button class="btn-primary" onclick="ajouterProduit()">Ajouter</button>
+      <button class="btn-primary" onclick="ajouterProduitAdmin()">Ajouter</button>
     </div>
   </div>
 
@@ -29,7 +29,7 @@
     <h2>Produits</h2>
     <table>
       <thead><tr><th>Nom</th><th>Prix</th><th>Stock</th><th>Action</th></tr></thead>
-      <tbody id="table-produits"></tbody>
+      <tbody id="table-produits"><tr><td colspan="4" class="vide">Chargement...</td></tr></tbody>
     </table>
   </div>
 
@@ -37,17 +37,18 @@
     <h2>Commandes reçues</h2>
     <table>
       <thead><tr><th>Client</th><th>Articles</th><th>Total</th><th>Date</th><th>Statut</th><th>Action</th></tr></thead>
-      <tbody id="table-commandes"></tbody>
+      <tbody id="table-commandes"><tr><td colspan="6" class="vide">Chargement...</td></tr></tbody>
     </table>
   </div>
 
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="data.js"></script>
 <script>
 
-  function afficherProduitsAdmin() {
-    const produits = getProduits();
+  function afficherProduitsAdmin(produits) {
     const tbody = document.getElementById("table-produits");
     tbody.innerHTML = "";
 
@@ -62,13 +63,13 @@
         <td>${p.nom}</td>
         <td>${p.prix} €</td>
         <td>${p.stock}</td>
-        <td><button class="btn-danger" onclick="supprimerProduit('${p.id}')">Supprimer</button></td>
+        <td><button class="btn-danger" onclick="supprimerProduitAdmin('${p.id}')">Supprimer</button></td>
       `;
       tbody.appendChild(tr);
     });
   }
 
-  function ajouterProduit() {
+  async function ajouterProduitAdmin() {
     const nom = document.getElementById("nouveau-nom").value.trim();
     const prix = parseFloat(document.getElementById("nouveau-prix").value);
     const stock = parseInt(document.getElementById("nouveau-stock").value);
@@ -78,26 +79,19 @@
       return;
     }
 
-    const produits = getProduits();
-    produits.push({ id: genererId(), nom, prix, stock });
-    saveProduits(produits);
+    await ajouterProduit({ nom, prix, stock });
 
     document.getElementById("nouveau-nom").value = "";
     document.getElementById("nouveau-prix").value = "";
     document.getElementById("nouveau-stock").value = "";
-
-    afficherProduitsAdmin();
   }
 
-  function supprimerProduit(id) {
+  async function supprimerProduitAdmin(id) {
     if (!confirm("Supprimer ce produit ?")) return;
-    const produits = getProduits().filter(p => p.id !== id);
-    saveProduits(produits);
-    afficherProduitsAdmin();
+    await supprimerProduit(id);
   }
 
-  function afficherCommandesAdmin() {
-    const commandes = getCommandes();
+  function afficherCommandesAdmin(commandes) {
     const tbody = document.getElementById("table-commandes");
     tbody.innerHTML = "";
 
@@ -106,8 +100,7 @@
       return;
     }
 
-    // Les plus récentes en premier
-    [...commandes].reverse().forEach(c => {
+    commandes.forEach(c => {
       const articles = c.articles.map(a => `${a.nom} ×${a.quantite}`).join(", ");
       const badgeClass = c.statut === "livrée" ? "badge livree" : "badge";
       const tr = document.createElement("tr");
@@ -117,22 +110,18 @@
         <td>${c.total} €</td>
         <td>${c.date}</td>
         <td><span class="${badgeClass}">${c.statut}</span></td>
-        <td>${c.statut !== "livrée" ? `<button class="btn-secondary" onclick="marquerLivree('${c.id}')">Marquer livrée</button>` : "—"}</td>
+        <td>${c.statut !== "livrée" ? `<button class="btn-secondary" onclick="marquerLivreeAdmin('${c.id}')">Marquer livrée</button>` : "—"}</td>
       `;
       tbody.appendChild(tr);
     });
   }
 
-  function marquerLivree(id) {
-    const commandes = getCommandes();
-    const commande = commandes.find(c => c.id === id);
-    if (commande) commande.statut = "livrée";
-    saveCommandes(commandes);
-    afficherCommandesAdmin();
+  async function marquerLivreeAdmin(id) {
+    await marquerLivree(id);
   }
 
-  afficherProduitsAdmin();
-  afficherCommandesAdmin();
+  ecouterProduits(afficherProduitsAdmin);
+  ecouterCommandes(afficherCommandesAdmin);
 </script>
 
 </body>
